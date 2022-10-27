@@ -1,7 +1,7 @@
 [package]
-name = "eframe_template"
+name = "timetracking"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+authors = ["Sean McNabb <sean.mcnabb.83@gmail.com>"]
 edition = "2021"
 rust-version = "1.60"
 
@@ -9,7 +9,9 @@ rust-version = "1.60"
 
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"]}
 egui = "0.19.0"
+egui_extras = { version = "0.19.0", features = ["datepicker", "serde"]}
 eframe = { version = "0.19.0", features = ["persistence"] }
 serde = { version = "1", features = ["derive"] } # You only need this if you want app persistence
 
