@@ -122,7 +122,7 @@ impl eframe::App for TemplateApp {
         });
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Select a project");
             if state.work_start_time.is_none() {
                 egui::ComboBox::from_label("Select Project")
                     .selected_text(match &state.selected_project_type {
