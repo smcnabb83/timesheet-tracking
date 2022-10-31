@@ -1626,7 +1626,7 @@ dependencies = [
 
 [[package]]
 name = "timetracking"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",

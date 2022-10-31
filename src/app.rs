@@ -1,12 +1,12 @@
+use crate::TimeSheet::{TimeSheetEntry, TimeSheetSummary};
 use chrono::{Date, DateTime, Duration, NaiveDate, Utc};
 use egui::Ui;
 use egui_extras::DatePickerButton;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] 
+#[serde(default)]
 pub struct TemplateApp {
-    // Example stuff:
     project_types: Vec<String>,
     time_sheet_entries: Vec<TimeSheetEntry>,
     #[serde(skip)]
@@ -25,30 +25,7 @@ struct State {
     manual_add_project: String,
     manual_add_date: Date<Utc>,
     manual_add_minutes: String,
-    manual_add_notes: String
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-struct TimeSheetEntry {
-    project_type: String,
-    work_start_datetime: DateTime<Utc>,
-    work_end_datetime: DateTime<Utc>,
-    notes: String,
-}
-
-struct TimeSheetSummary {
-    summary: HashMap<NaiveDate, TimesheetDaySummary>,
-    projects: Vec<String>,
-    dates: Vec<NaiveDate>,
-}
-
-struct TimesheetDaySummary {
-    summary: HashMap<String, ProjectDaySummary>,
-}
-
-struct ProjectDaySummary {
-    hours_worked: Duration,
-    notes: String,
+    manual_add_notes: String,
 }
 
 impl Default for TemplateApp {
@@ -58,18 +35,18 @@ impl Default for TemplateApp {
             project_types: vec!["Lunch".to_string(), "Meetings".to_string()],
             time_sheet_entries: Vec::new(),
             state: State {
-            selected_project_type: None,
-            new_project_type: String::new().to_owned(),
-            work_start_time: None,
-            current_notes: String::new().to_owned(),
-            time_sheet_summary: None,
-            time_sheet_summary_start_date: chrono::offset::Utc::today(),
-            time_sheet_summary_end_date: chrono::offset::Utc::today() + Duration::days(14),
-            manual_add_date: chrono::offset::Utc::today(),
-            manual_add_notes: String::new().to_owned(),
-            manual_add_minutes: String::new().to_owned(),
-            manual_add_project: String::new().to_owned(),
-            }
+                selected_project_type: None,
+                new_project_type: String::new().to_owned(),
+                work_start_time: None,
+                current_notes: String::new().to_owned(),
+                time_sheet_summary: None,
+                time_sheet_summary_start_date: chrono::offset::Utc::today(),
+                time_sheet_summary_end_date: chrono::offset::Utc::today() + Duration::days(14),
+                manual_add_date: chrono::offset::Utc::today(),
+                manual_add_notes: String::new().to_owned(),
+                manual_add_minutes: String::new().to_owned(),
+                manual_add_project: String::new().to_owned(),
+            },
         }
     }
 }
@@ -127,7 +104,7 @@ impl eframe::App for TemplateApp {
                 egui::ComboBox::from_label("Select Project")
                     .selected_text(match &state.selected_project_type {
                         Some(project_type) => project_type.to_string(),
-                        None => "select a project".to_owned()
+                        None => "select a project".to_owned(),
                     })
                     .show_ui(ui, |ui| {
                         for project_type in project_types.as_slice() {
@@ -141,7 +118,7 @@ impl eframe::App for TemplateApp {
 
                 if state.selected_project_type.is_some() {
                     if ui.button("start work on project").clicked() {
-                       state.work_start_time = Some(chrono::offset::Utc::now());
+                        state.work_start_time = Some(chrono::offset::Utc::now());
                     }
                 }
             } else {
@@ -205,29 +182,18 @@ impl eframe::App for TemplateApp {
 
                     ui.text_edit_multiline(&mut state.manual_add_notes);
                     if ui.button("Add").clicked() {
-                        if state.manual_add_project.len() > 0 && state.manual_add_minutes.len() > 0 {
-                            let project = state.manual_add_project.to_owned();
+                        if state.manual_add_project.len() > 0 && state.manual_add_minutes.len() > 0
+                        {
                             let minutes = match state.manual_add_minutes.parse::<f32>() {
                                 Ok(mins) => mins,
                                 _error => 0.0,
                             };
-                            if minutes > 0.0 {
-                                let minutes_int = minutes.floor() as u32;
-                                let seconds_int =
-                                    ((minutes - minutes.floor()) * 60.0).round() as u32;
-                                let s_date = state.manual_add_date.and_hms(0, 0, 0);
-                                let e_date = state.manual_add_date.and_hms(
-                                    minutes_int / 60,
-                                    minutes_int % 60,
-                                    seconds_int,
-                                );
-                                time_sheet_entries.push(TimeSheetEntry {
-                                    project_type: project,
-                                    work_start_datetime: s_date.to_owned(),
-                                    work_end_datetime: e_date.to_owned(),
-                                    notes: state.manual_add_notes.to_string(),
-                                });
-                            }
+                            time_sheet_entries.push(TimeSheetEntry::from_minutes(
+                                &state.manual_add_project,
+                                minutes,
+                                &state.manual_add_notes,
+                                &state.manual_add_date,
+                            ));
                         }
                     }
                 });
@@ -265,7 +231,7 @@ impl eframe::App for TemplateApp {
                         if ui.button("Genereate Timesheet Summary").clicked() {
                             let start_date = state.time_sheet_summary_start_date.naive_utc();
                             let end_date = state.time_sheet_summary_end_date.naive_utc();
-                            state.time_sheet_summary = Some(generate_timesheet_summary(
+                            state.time_sheet_summary = Some(TimeSheetSummary::new(
                                 time_sheet_entries,
                                 &start_date,
                                 &end_date,
@@ -305,7 +271,7 @@ fn show_timesheet_summary_grid<'a>(
                         ui.label(date.format("%m/%d").to_string());
                     }
                     ui.end_row();
-
+                    let mut total_date_times: HashMap<&NaiveDate, Duration> = HashMap::new();
                     for project in s.projects.iter() {
                         ui.label(project);
                         for date in s.dates.iter() {
@@ -319,8 +285,18 @@ fn show_timesheet_summary_grid<'a>(
                                 },
                                 None => (Duration::zero(), "".to_string()),
                             };
+                            let this_date_duration = match total_date_times.get(&date) {
+                                Some(date_time) => date_time,
+                                None => {
+                                    total_date_times.insert(&date, Duration::zero());
+                                    total_date_times.get(&date).unwrap()
+                                }
+                            };
+                            let updated_time = *this_date_duration + hours;
+                            total_date_times.insert(&date, updated_time);
+
                             if notes.len() > 0 {
-                                if ui.link(format_duration(&hours)).hovered() {
+                                if ui.link(format_duration_hours(&hours)).hovered() {
                                     egui::Window::new(format!("Notes for {}", date.to_string()))
                                         .fixed_pos(ui.next_widget_position())
                                         .show(ui.ctx(), |ui| {
@@ -328,10 +304,20 @@ fn show_timesheet_summary_grid<'a>(
                                         });
                                 }
                             } else {
-                                ui.label(format_duration(&hours));
+                                ui.label(format_duration_hours(&hours));
                             }
                         }
                         ui.end_row();
+                    }
+                    ui.separator();
+                    for _ in s.dates.iter() {
+                        ui.separator();
+                    }
+                    ui.end_row();
+                    ui.label("total");
+                    for date in s.dates.iter() {
+                        let total_hours = total_date_times.get(&date).unwrap();
+                        ui.label(format_duration_hours(&total_hours));
                     }
                 });
             }
@@ -383,66 +369,9 @@ fn format_duration(span: &chrono::Duration) -> String {
     format!("{}s", span.num_seconds())
 }
 
-fn generate_timesheet_summary(
-    entries: &Vec<TimeSheetEntry>,
-    start_date: &NaiveDate,
-    end_date: &NaiveDate,
-) -> TimeSheetSummary {
-    let mut summary: HashMap<NaiveDate, TimesheetDaySummary> = HashMap::new();
-    let mut dates = HashSet::new();
-    let mut projects = HashSet::new();
-
-    for entry in entries.iter() {
-        let date_worked = entry.work_start_datetime.date_naive();
-        let project_worked = entry.project_type.to_string();
-        let duration_worked = entry.work_end_datetime - entry.work_start_datetime;
-        let project_notes = entry.notes.to_string();
-        if date_worked < *start_date || date_worked > *end_date {
-            continue;
-        }
-        dates.insert(date_worked);
-        projects.insert(project_worked.to_string());
-
-        let timesheet_day_summary = match summary.get_mut(&date_worked) {
-            Some(day_summary) => day_summary,
-            None => {
-                let ts_day_summary = TimesheetDaySummary {
-                    summary: HashMap::new(),
-                };
-                summary.insert(date_worked, ts_day_summary);
-                summary.get_mut(&date_worked).unwrap()
-            }
-        };
-
-        let mut project_day_summary = match timesheet_day_summary.summary.get_mut(&project_worked) {
-            Some(project_summary) => project_summary,
-            None => {
-                let p_day_summary = ProjectDaySummary {
-                    hours_worked: Duration::zero(),
-                    notes: String::new(),
-                };
-                timesheet_day_summary
-                    .summary
-                    .insert(project_worked.to_string(), p_day_summary);
-                timesheet_day_summary
-                    .summary
-                    .get_mut(&project_worked)
-                    .unwrap()
-            }
-        };
-
-        project_day_summary.hours_worked = project_day_summary.hours_worked + duration_worked;
-        if project_notes.len() > 0 {
-            project_day_summary.notes =
-                format!("{} \n {}", project_day_summary.notes, project_notes);
-        }
-    }
-    let mut final_dates: Vec<NaiveDate> = dates.into_iter().collect();
-    final_dates.sort();
-
-    TimeSheetSummary {
-        summary,
-        dates: final_dates,
-        projects: projects.into_iter().collect(),
-    }
+fn format_duration_hours(span: &chrono::Duration) -> String {
+    let mut total_hours: f64 = span.num_hours() as f64;
+    total_hours = total_hours + (span.num_days() as f64) * 24.0;
+    total_hours = total_hours + (span.num_minutes() as f64) / 60.0;
+    total_hours.to_string()
 }
