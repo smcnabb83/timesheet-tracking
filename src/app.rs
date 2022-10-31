@@ -181,13 +181,17 @@ impl eframe::App for TemplateApp {
                     });
 
                     ui.text_edit_multiline(&mut state.manual_add_notes);
-                    if ui.button("Add").clicked() {
+                    let minutes = match state.manual_add_minutes.parse::<f32>() {
+                        Ok(mins) => mins,
+                        _error => 0.0,
+                    };
+                    if state.manual_add_project.len() > 0
+                        && minutes > 0.0
+                        && minutes < (24.0 * 60.0)
+                        && ui.button("Add").clicked()
+                    {
                         if state.manual_add_project.len() > 0 && state.manual_add_minutes.len() > 0
                         {
-                            let minutes = match state.manual_add_minutes.parse::<f32>() {
-                                Ok(mins) => mins,
-                                _error => 0.0,
-                            };
                             time_sheet_entries.push(TimeSheetEntry::from_minutes(
                                 &state.manual_add_project,
                                 minutes,
@@ -370,8 +374,7 @@ fn format_duration(span: &chrono::Duration) -> String {
 }
 
 fn format_duration_hours(span: &chrono::Duration) -> String {
-    let mut total_hours: f64 = span.num_hours() as f64;
-    total_hours = total_hours + (span.num_days() as f64) * 24.0;
-    total_hours = total_hours + (span.num_minutes() as f64) / 60.0;
-    total_hours.to_string()
+    let mut total_hours: f64 = span.num_minutes() as f64;
+    total_hours = total_hours / 60.0;
+    format!("{0:.2}", total_hours)
 }

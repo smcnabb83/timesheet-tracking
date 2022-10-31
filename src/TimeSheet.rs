@@ -1,7 +1,7 @@
 use chrono::{Date, DateTime, Duration, NaiveDate, Utc};
 use std::collections::{HashMap, HashSet};
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct TimeSheetEntry {
     pub project_type: String,
     pub work_start_datetime: DateTime<Utc>,
@@ -9,16 +9,19 @@ pub struct TimeSheetEntry {
     pub notes: String,
 }
 
+#[derive(Debug)]
 pub struct TimeSheetSummary {
     pub summary: HashMap<NaiveDate, TimesheetDaySummary>,
     pub projects: Vec<String>,
     pub dates: Vec<NaiveDate>,
 }
 
+#[derive(Debug)]
 pub struct TimesheetDaySummary {
     pub summary: HashMap<String, ProjectDaySummary>,
 }
 
+#[derive(Debug)]
 pub struct ProjectDaySummary {
     pub hours_worked: Duration,
     pub notes: String,
@@ -34,6 +37,7 @@ impl TimeSheetEntry {
         let work_start_datetime = today_date.and_hms(0, 0, 0);
         let mut work_end_datetime = work_start_datetime;
         if minutes >= 0.0 {
+            debug_assert!(minutes < (60.0 * 24.0));
             let minutes_int = minutes.floor() as u32;
             let seconds_int = ((minutes - minutes.floor()) * 60.0).round() as u32;
             work_end_datetime = today_date.and_hms(minutes_int / 60, minutes_int % 60, seconds_int);
