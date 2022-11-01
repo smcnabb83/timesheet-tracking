@@ -118,3 +118,63 @@ impl TimeSheetSummary {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_time_sheet_summary_empty_vec() {
+        let start_date = NaiveDate::from_ymd(2022, 07, 12);
+        let end_date = NaiveDate::from_ymd(2022, 07, 13);
+        let empty_vec: Vec<TimeSheetEntry> = Vec::new();
+        let time_sheet_summary = TimeSheetSummary::new(&empty_vec, &start_date, &end_date);
+        assert_eq!(time_sheet_summary.summary.len(), 0);
+        assert_eq!(time_sheet_summary.dates.len(), 0);
+        assert_eq!(time_sheet_summary.projects.len(), 0);
+    }
+
+    #[test]
+    fn test_time_sheet_summary_one_item_vec() {
+        let start_date = NaiveDate::from_ymd(2022, 07, 12);
+        let end_date = NaiveDate::from_ymd(2022, 07, 13);
+        let mut entries: Vec<TimeSheetEntry> = Vec::new();
+        entries.push(TimeSheetEntry {
+            project_type: "test".to_string(),
+            work_start_datetime: datetime_from_ymd_hms(2022, 07, 12, 2, 0, 0),
+            work_end_datetime: datetime_from_ymd_hms(2022, 07, 12, 4, 0, 0),
+            notes: String::new(),
+        });
+        let time_sheet_summary = TimeSheetSummary::new(&entries, &start_date, &end_date);
+        assert_eq!(time_sheet_summary.summary.len(), 1);
+        assert_eq!(time_sheet_summary.dates.len(), 1);
+        assert_eq!(time_sheet_summary.projects.len(), 1);
+
+        assert_eq!(
+            time_sheet_summary
+                .summary
+                .get(&NaiveDate::from_ymd(2022, 07, 12))
+                .unwrap()
+                .summary
+                .get(&"test".to_string())
+                .unwrap()
+                .hours_worked
+                .num_hours(),
+            2
+        )
+    }
+
+    fn datetime_from_ymd_hms(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> DateTime<Utc> {
+        NaiveDate::from_ymd(year, month, day)
+            .and_hms(hour, minute, second)
+            .and_local_timezone(Utc)
+            .unwrap()
+    }
+}
