@@ -73,6 +73,24 @@ impl eframe::App for TemplateApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
+    fn clear_color(&self, _visuals: &egui::Visuals) -> egui::Rgba {
+        egui::Color32::from_rgba_unmultiplied(4, 4, 4, 180).into()
+    }
+
+    fn on_close_event(&mut self) -> bool {
+        // Don't close when we're actively recording time
+        self.state.work_start_time.is_none()
+    }
+
+    fn persist_native_window(&self) -> bool {
+        //TODO: See if we can set this up to only persist if we know
+        //this is inside a screen area on closing. Problem with this
+        //being on is it's possible for a user to close it with the
+        //app being offscreen, leading to some confustion the next time
+        //the user starts the app
+        false
+    }
+
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
