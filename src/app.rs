@@ -9,6 +9,8 @@ use std::collections::HashMap;
 pub struct TemplateApp {
     project_types: Vec<String>,
     time_sheet_entries: Vec<TimeSheetEntry>,
+    //This field only exists so we can serialize and deserialize time_sheet_summary_start_date
+    time_sheet_start_date: String,
     #[serde(skip)]
     state: State,
 }
@@ -21,7 +23,6 @@ struct State {
     current_notes: String,
     time_sheet_summary: Option<TimeSheetSummary>,
     time_sheet_summary_start_date: Date<Utc>,
-    time_sheet_summary_end_date: Date<Utc>,
     manual_add_project: String,
     manual_add_date: Date<Utc>,
     manual_add_minutes: String,
@@ -34,6 +35,7 @@ impl Default for TemplateApp {
             // Example stuff:
             project_types: vec!["Lunch".to_string(), "Meetings".to_string()],
             time_sheet_entries: Vec::new(),
+            time_sheet_start_date: String::new(),
             state: State {
                 selected_project_type: None,
                 new_project_type: String::new().to_owned(),
@@ -41,7 +43,6 @@ impl Default for TemplateApp {
                 current_notes: String::new().to_owned(),
                 time_sheet_summary: None,
                 time_sheet_summary_start_date: chrono::offset::Utc::today(),
-                time_sheet_summary_end_date: chrono::offset::Utc::today() + Duration::days(14),
                 manual_add_date: chrono::offset::Utc::today(),
                 manual_add_notes: String::new().to_owned(),
                 manual_add_minutes: String::new().to_owned(),
@@ -60,7 +61,16 @@ impl TemplateApp {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut stored_state: TemplateApp =
+                eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let deserialized_end_date =
+                match DateTime::parse_from_rfc3339(&stored_state.time_sheet_start_date) {
+                    Ok(result) => result.with_timezone(&Utc).date(),
+                    Err(..) => chrono::offset::Utc::today(),
+                };
+
+            stored_state.state.time_sheet_summary_start_date = deserialized_end_date;
+            return stored_state;
         }
 
         Default::default()
@@ -70,6 +80,11 @@ impl TemplateApp {
 impl eframe::App for TemplateApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.time_sheet_start_date = self
+            .state
+            .time_sheet_summary_start_date
+            .and_hms(0, 0, 0)
+            .to_rfc3339();
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
@@ -98,6 +113,7 @@ impl eframe::App for TemplateApp {
             time_sheet_entries,
             project_types,
             state,
+            time_sheet_start_date: _,
         } = self;
         let mut entries_to_delete = Vec::new();
         let mut projects_to_delete = Vec::new();
@@ -246,13 +262,15 @@ impl eframe::App for TemplateApp {
                             DatePickerButton::new(&mut state.time_sheet_summary_start_date)
                                 .id_source("Start_Date"),
                         );
-                        ui.add(
-                            DatePickerButton::new(&mut state.time_sheet_summary_end_date)
-                                .id_source("End_Date"),
-                        );
+                        ui.label(format!(
+                            "through {}",
+                            (state.time_sheet_summary_start_date + Duration::days(14)).format("%F")
+                        ));
                         if ui.button("Genereate Timesheet Summary").clicked() {
                             let start_date = state.time_sheet_summary_start_date.naive_utc();
-                            let end_date = state.time_sheet_summary_end_date.naive_utc();
+                            let end_date = (state.time_sheet_summary_start_date
+                                + Duration::days(14))
+                            .naive_utc();
                             state.time_sheet_summary = Some(TimeSheetSummary::new(
                                 time_sheet_entries,
                                 &start_date,
