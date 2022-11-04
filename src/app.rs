@@ -27,6 +27,13 @@ struct State {
     manual_add_date: Date<Utc>,
     manual_add_minutes: String,
     manual_add_notes: String,
+    time_sheet_filters: TimeSheetEntryFilters,
+}
+
+struct TimeSheetEntryFilters {
+    project_type: String,
+    start_date: Date<Utc>,
+    end_date: Date<Utc>,
 }
 
 impl Default for TemplateApp {
@@ -47,6 +54,11 @@ impl Default for TemplateApp {
                 manual_add_notes: String::new().to_owned(),
                 manual_add_minutes: String::new().to_owned(),
                 manual_add_project: String::new().to_owned(),
+                time_sheet_filters: TimeSheetEntryFilters {
+                    project_type: String::new(),
+                    start_date: chrono::offset::Utc::today() - Duration::days(365),
+                    end_date: chrono::offset::Utc::today() + Duration::days(365),
+                },
             },
         }
     }
@@ -103,6 +115,7 @@ impl eframe::App for TemplateApp {
         //being on is it's possible for a user to close it with the
         //app being offscreen, leading to some confustion the next time
         //the user starts the app
+
         false
     }
 
@@ -118,11 +131,12 @@ impl eframe::App for TemplateApp {
         let mut entries_to_delete = Vec::new();
         let mut projects_to_delete = Vec::new();
 
-        ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        ctx.request_repaint_after(std::time::Duration::from_secs_f32(1.0));
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
+
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
@@ -156,7 +170,10 @@ impl eframe::App for TemplateApp {
                     }
                 }
             } else {
-                let duration = chrono::offset::Utc::now() - state.work_start_time.unwrap();
+                let duration = match state.work_start_time {
+                    Some(dt) => chrono::offset::Utc::now() - dt,
+                    None => Duration::seconds(0),
+                };
 
                 ui.label(format!("Time elapsed: {}", format_duration(&duration)));
                 ui.text_edit_multiline(&mut state.current_notes);
@@ -240,16 +257,31 @@ impl eframe::App for TemplateApp {
 
         if state.work_start_time.is_none() {
             egui::CentralPanel::default().show(ctx, |ui| {
-                // The central panel the region left after adding TopPanel's and SidePanel's
-
                 ui.heading("Timesheet Entries");
 
                 egui::CollapsingHeader::new("Time Sheet Entries").show(ui, |ui| {
+                    let filters = &mut state.time_sheet_filters;
+                    ui.label("Filters");
+                    ui.horizontal(|ui| {
+                        ui.label("Project Name");
+                        ui.text_edit_singleline(&mut filters.project_type);
+                        ui.label("Start Date");
+                        ui.add(
+                            DatePickerButton::new(&mut filters.start_date)
+                                .id_source("filter_start_date"),
+                        );
+                        ui.label("End Date");
+                        ui.add(
+                            DatePickerButton::new(&mut filters.end_date)
+                                .id_source("filter_end_date"),
+                        );
+                    });
                     egui::ScrollArea::new([false, true]).show(ui, |ui| {
                         show_timesheet_entries_grid(
                             ui,
                             &time_sheet_entries,
                             &mut entries_to_delete,
+                            &state.time_sheet_filters,
                         );
                     });
                 });
@@ -326,13 +358,10 @@ fn show_timesheet_summary_grid<'a>(
                                 None => (Duration::zero(), "".to_string()),
                             };
                             let this_date_duration = match total_date_times.get(&date) {
-                                Some(date_time) => date_time,
-                                None => {
-                                    total_date_times.insert(&date, Duration::zero());
-                                    total_date_times.get(&date).unwrap()
-                                }
+                                Some(date_time) => *date_time,
+                                None => Duration::zero(),
                             };
-                            let updated_time = *this_date_duration + hours;
+                            let updated_time = this_date_duration + hours;
                             total_date_times.insert(&date, updated_time);
 
                             if notes.len() > 0 {
@@ -371,6 +400,7 @@ fn show_timesheet_entries_grid<'a>(
     ui: &'a mut Ui,
     time_sheet_entries: &Vec<TimeSheetEntry>,
     entries_to_delete: &mut Vec<usize>,
+    filters: &TimeSheetEntryFilters,
 ) -> &'a mut Ui {
     egui::Grid::new("timesheet_entries_grid").show(ui, |ui| {
         ui.label("project");
@@ -380,6 +410,20 @@ fn show_timesheet_entries_grid<'a>(
         ui.label("notes");
         ui.end_row();
         for (index, entry) in time_sheet_entries.iter().enumerate() {
+            if filters.project_type.len() > 0
+                && !entry
+                    .project_type
+                    .to_lowercase()
+                    .contains(&filters.project_type.to_lowercase())
+            {
+                continue;
+            }
+            if (filters.start_date > entry.work_start_datetime.date())
+                || (filters.end_date < entry.work_end_datetime.date())
+            {
+                continue;
+            }
+
             ui.label(&entry.project_type);
             ui.label(entry.work_start_datetime.format("%F").to_string());
             ui.label(entry.work_end_datetime.format("%F").to_string());
