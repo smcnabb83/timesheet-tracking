@@ -275,6 +275,11 @@ impl eframe::App for TemplateApp {
                             DatePickerButton::new(&mut filters.end_date)
                                 .id_source("filter_end_date"),
                         );
+                        if filters.start_date > filters.end_date {
+                            let filter_swap = filters.start_date;
+                            filters.start_date = filters.end_date;
+                            filters.end_date = filter_swap;
+                        }
                     });
                     egui::ScrollArea::new([false, true]).show(ui, |ui| {
                         show_timesheet_entries_grid(
