@@ -54,7 +54,7 @@ impl TimeSheetEntry {
 
 impl TimeSheetSummary {
     pub fn new(
-        entries: &Vec<TimeSheetEntry>,
+        entries: &[TimeSheetEntry],
         start_date: &NaiveDate,
         end_date: &NaiveDate,
     ) -> TimeSheetSummary {
@@ -84,26 +84,25 @@ impl TimeSheetSummary {
                 }
             };
 
-            let mut project_day_summary =
-                match timesheet_day_summary.summary.get_mut(&project_worked) {
-                    Some(project_summary) => project_summary,
-                    None => {
-                        let p_day_summary = ProjectDaySummary {
-                            hours_worked: Duration::zero(),
-                            notes: String::new(),
-                        };
-                        timesheet_day_summary
-                            .summary
-                            .insert(project_worked.to_string(), p_day_summary);
-                        timesheet_day_summary
-                            .summary
-                            .get_mut(&project_worked)
-                            .unwrap()
-                    }
-                };
+            let project_day_summary = match timesheet_day_summary.summary.get_mut(&project_worked) {
+                Some(project_summary) => project_summary,
+                None => {
+                    let p_day_summary = ProjectDaySummary {
+                        hours_worked: Duration::zero(),
+                        notes: String::new(),
+                    };
+                    timesheet_day_summary
+                        .summary
+                        .insert(project_worked.to_string(), p_day_summary);
+                    timesheet_day_summary
+                        .summary
+                        .get_mut(&project_worked)
+                        .unwrap()
+                }
+            };
 
             project_day_summary.hours_worked = project_day_summary.hours_worked + duration_worked;
-            if project_notes.len() > 0 {
+            if !project_notes.is_empty() {
                 project_day_summary.notes =
                     format!("{} \n {}", project_day_summary.notes, project_notes);
             }

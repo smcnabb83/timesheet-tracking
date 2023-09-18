@@ -164,10 +164,10 @@ impl eframe::App for TemplateApp {
                         }
                     });
 
-                if state.selected_project_type.is_some() {
-                    if ui.button("start work on project").clicked() {
-                        state.work_start_time = Some(chrono::offset::Utc::now());
-                    }
+                if state.selected_project_type.is_some()
+                    && ui.button("start work on project").clicked()
+                {
+                    state.work_start_time = Some(chrono::offset::Utc::now());
                 }
             } else {
                 let duration = match state.work_start_time {
@@ -236,20 +236,19 @@ impl eframe::App for TemplateApp {
                         Ok(mins) => mins,
                         _error => 0.0,
                     };
-                    if state.manual_add_project.len() > 0
+                    if !state.manual_add_project.is_empty()
                         && minutes > 0.0
                         && minutes < (24.0 * 60.0)
                         && ui.button("Add").clicked()
+                        && !state.manual_add_project.is_empty()
+                        && !state.manual_add_minutes.is_empty()
                     {
-                        if state.manual_add_project.len() > 0 && state.manual_add_minutes.len() > 0
-                        {
-                            time_sheet_entries.push(TimeSheetEntry::from_minutes(
-                                &state.manual_add_project,
-                                minutes,
-                                &state.manual_add_notes,
-                                &state.manual_add_date,
-                            ));
-                        }
+                        time_sheet_entries.push(TimeSheetEntry::from_minutes(
+                            &state.manual_add_project,
+                            minutes,
+                            &state.manual_add_notes,
+                            &state.manual_add_date,
+                        ));
                     }
                 });
             }
@@ -276,15 +275,13 @@ impl eframe::App for TemplateApp {
                                 .id_source("filter_end_date"),
                         );
                         if filters.start_date > filters.end_date {
-                            let filter_swap = filters.start_date;
-                            filters.start_date = filters.end_date;
-                            filters.end_date = filter_swap;
+                            std::mem::swap(&mut filters.start_date, &mut filters.end_date);
                         }
                     });
                     egui::ScrollArea::new([false, true]).show(ui, |ui| {
                         show_timesheet_entries_grid(
                             ui,
-                            &time_sheet_entries,
+                            time_sheet_entries,
                             &mut entries_to_delete,
                             &state.time_sheet_filters,
                         );
@@ -352,7 +349,7 @@ fn show_timesheet_summary_grid<'a>(
                     for project in s.projects.iter() {
                         ui.label(project);
                         for date in s.dates.iter() {
-                            let (hours, notes) = match s.summary.get(&date) {
+                            let (hours, notes) = match s.summary.get(date) {
                                 Some(date_match) => match date_match.summary.get(project) {
                                     Some(project_match) => (
                                         project_match.hours_worked,
@@ -362,16 +359,16 @@ fn show_timesheet_summary_grid<'a>(
                                 },
                                 None => (Duration::zero(), "".to_string()),
                             };
-                            let this_date_duration = match total_date_times.get(&date) {
+                            let this_date_duration = match total_date_times.get(date) {
                                 Some(date_time) => *date_time,
                                 None => Duration::zero(),
                             };
                             let updated_time = this_date_duration + hours;
-                            total_date_times.insert(&date, updated_time);
+                            total_date_times.insert(date, updated_time);
 
-                            if notes.len() > 0 {
+                            if !notes.is_empty() {
                                 if ui.link(format_duration_hours(&hours)).hovered() {
-                                    egui::Window::new(format!("Notes for {}", date.to_string()))
+                                    egui::Window::new(format!("Notes for {}", date))
                                         .fixed_pos(ui.next_widget_position())
                                         .show(ui.ctx(), |ui| {
                                             ui.label(notes.to_owned());
@@ -391,7 +388,7 @@ fn show_timesheet_summary_grid<'a>(
                     ui.label("total");
                     for date in s.dates.iter() {
                         let total_hours = total_date_times.get(&date).unwrap();
-                        ui.label(format_duration_hours(&total_hours));
+                        ui.label(format_duration_hours(total_hours));
                     }
                 });
             }
@@ -403,7 +400,7 @@ fn show_timesheet_summary_grid<'a>(
 
 fn show_timesheet_entries_grid<'a>(
     ui: &'a mut Ui,
-    time_sheet_entries: &Vec<TimeSheetEntry>,
+    time_sheet_entries: &[TimeSheetEntry],
     entries_to_delete: &mut Vec<usize>,
     filters: &TimeSheetEntryFilters,
 ) -> &'a mut Ui {
@@ -415,7 +412,7 @@ fn show_timesheet_entries_grid<'a>(
         ui.label("notes");
         ui.end_row();
         for (index, entry) in time_sheet_entries.iter().enumerate() {
-            if filters.project_type.len() > 0
+            if !filters.project_type.is_empty()
                 && !entry
                     .project_type
                     .to_lowercase()
@@ -442,7 +439,7 @@ fn show_timesheet_entries_grid<'a>(
             ui.end_row();
         }
     });
-    return ui;
+    ui
 }
 
 fn format_duration(span: &chrono::Duration) -> String {
@@ -460,6 +457,6 @@ fn format_duration(span: &chrono::Duration) -> String {
 
 fn format_duration_hours(span: &chrono::Duration) -> String {
     let mut total_hours: f64 = span.num_minutes() as f64;
-    total_hours = total_hours / 60.0;
+    total_hours /= 60.0;
     format!("{0:.2}", total_hours)
 }
