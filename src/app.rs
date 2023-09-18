@@ -110,6 +110,7 @@ impl eframe::App for TemplateApp {
         self.state.work_start_time.is_none()
     }
 
+    #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
     fn persist_native_window(&self) -> bool {
         //TODO: See if we can set this up to only persist if we know
         //this is inside a screen area on closing. Problem with this
