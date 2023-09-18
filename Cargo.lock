@@ -1114,7 +1114,7 @@ dependencies = [
 name = "ndk-sys"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f74ddd54b7da8d38d399faf43472ac9759f1a028a45c83154bff603e0f56385a"
+checksum = "21d83ec9c63ec5bf950200a8e508bdad6659972187b625469f58ef8c08e29046"
 dependencies = [
  "jni-sys",
 ]
