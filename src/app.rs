@@ -104,6 +104,7 @@ impl eframe::App for TemplateApp {
         egui::Color32::from_rgba_unmultiplied(4, 4, 4, 180).into()
     }
 
+    #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
     fn on_close_event(&mut self) -> bool {
         // Don't close when we're actively recording time
         self.state.work_start_time.is_none()
